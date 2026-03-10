@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/openf1/:path*",
+      "destination": "https://api.openf1.org/:path*"
+    },
+    {
+      "source": "/jolpica/:path*",
+      "destination": "https://api.jolpi.ca/:path*"
+    }
+  ]
+}
