@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install -D tailwindcss @tailwindcss/vite && npm install react-router-dom)",
+      "WebFetch(domain:openf1.org)",
+      "WebFetch(domain:api.openf1.org)",
+      "Bash(npm run dev)",
+      "WebFetch(domain:api.jolpi.ca)",
+      "Bash(npm run build 2>&1)"
+    ]
+  }
+}
