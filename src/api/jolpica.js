@@ -58,7 +58,7 @@ export async function getDriversByConstructor(year) {
 }
 
 // Returns per-driver results for a specific round
-// Each entry: { driverId, permanentNumber, familyName, givenName, constructorId, status, points, position, lapsCompleted }
+// Each entry: { driverId, permanentNumber, familyName, givenName, constructorId, status, points, position, positionText, lapsCompleted, time }
 export async function getRaceResults(year = 2026, round) {
   const data = await fetchJson(`${BASE}/${year}/${round}/results.json`);
   const race = data?.MRData?.RaceTable?.Races?.[0];
@@ -72,6 +72,27 @@ export async function getRaceResults(year = 2026, round) {
     status: r.status ?? '',
     points: Number(r.points ?? 0),
     position: r.positionText === 'R' ? null : Number(r.position),
+    positionText: r.positionText ?? '',
     lapsCompleted: Number(r.laps ?? 0),
+    time: r.Time?.time ?? null,
+  }));
+}
+
+// Returns qualifying results for a specific round
+// Each entry: { position, driverId, permanentNumber, givenName, familyName, constructorId, q1, q2, q3 }
+export async function getQualifyingResults(year, round) {
+  const data = await fetchJson(`${BASE}/${year}/${round}/qualifying.json`);
+  const race = data?.MRData?.RaceTable?.Races?.[0];
+  const results = race?.QualifyingResults ?? [];
+  return results.map((r) => ({
+    position: Number(r.position),
+    driverId: r.Driver?.driverId ?? '',
+    permanentNumber: r.Driver?.permanentNumber ?? '',
+    givenName: r.Driver?.givenName ?? '',
+    familyName: r.Driver?.familyName ?? '',
+    constructorId: r.Constructor?.constructorId ?? '',
+    q1: r.Q1 ?? null,
+    q2: r.Q2 ?? null,
+    q3: r.Q3 ?? null,
   }));
 }

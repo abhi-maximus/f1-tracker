@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getConstructorStandings, getDriverStandings, getFullSchedule,
   getRaceSchedule, getConstructors, getDriversByConstructor, getRaceResults,
+  getQualifyingResults,
 } from './jolpica';
 
 function mockFetch(data) {
@@ -245,5 +246,130 @@ describe('getRaceResults', () => {
     const result = await getRaceResults(2026, 1);
     expect(result[0].position).toBeNull();
     expect(result[0].lapsCompleted).toBe(43);
+  });
+
+  it('includes positionText and time in returned object', async () => {
+    global.fetch = mockFetch({
+      MRData: {
+        RaceTable: {
+          Races: [{
+            Results: [{
+              Driver: { driverId: 'norris', permanentNumber: '4', givenName: 'Lando', familyName: 'Norris' },
+              Constructor: { constructorId: 'mclaren' },
+              status: 'Finished', points: '25', position: '1', positionText: '1', laps: '57',
+              Time: { time: '1:30:12.345' },
+            }],
+          }],
+        },
+      },
+    });
+    const result = await getRaceResults(2026, 1);
+    expect(result[0].positionText).toBe('1');
+    expect(result[0].time).toBe('1:30:12.345');
+  });
+
+  it('returns null time when Time field is absent', async () => {
+    global.fetch = mockFetch({
+      MRData: {
+        RaceTable: {
+          Races: [{
+            Results: [{
+              Driver: { driverId: 'hamilton', permanentNumber: '44', givenName: 'Lewis', familyName: 'Hamilton' },
+              Constructor: { constructorId: 'ferrari' },
+              status: 'Finished', points: '18', position: '2', positionText: '2', laps: '57',
+            }],
+          }],
+        },
+      },
+    });
+    const result = await getRaceResults(2026, 1);
+    expect(result[0].time).toBeNull();
+  });
+});
+
+describe('getQualifyingResults', () => {
+  it('maps qualifying result fields correctly', async () => {
+    global.fetch = mockFetch({
+      MRData: {
+        RaceTable: {
+          Races: [{
+            QualifyingResults: [{
+              position: '1',
+              number: '4',
+              Driver: { driverId: 'norris', permanentNumber: '4', givenName: 'Lando', familyName: 'Norris' },
+              Constructor: { constructorId: 'mclaren' },
+              Q1: '1:15.001', Q2: '1:14.502', Q3: '1:13.988',
+            }],
+          }],
+        },
+      },
+    });
+    const result = await getQualifyingResults(2026, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      position: 1,
+      driverId: 'norris',
+      permanentNumber: '4',
+      givenName: 'Lando',
+      familyName: 'Norris',
+      constructorId: 'mclaren',
+      q1: '1:15.001',
+      q2: '1:14.502',
+      q3: '1:13.988',
+    });
+  });
+
+  it('returns [] when no qualifying data', async () => {
+    global.fetch = mockFetch({ MRData: { RaceTable: { Races: [] } } });
+    const result = await getQualifyingResults(2026, 99);
+    expect(result).toEqual([]);
+  });
+
+  it('handles missing Q2 and Q3 (knocked out in Q1)', async () => {
+    global.fetch = mockFetch({
+      MRData: {
+        RaceTable: {
+          Races: [{
+            QualifyingResults: [{
+              position: '20',
+              number: '31',
+              Driver: { driverId: 'ocon', permanentNumber: '31', givenName: 'Esteban', familyName: 'Ocon' },
+              Constructor: { constructorId: 'haas' },
+              Q1: '1:16.500',
+            }],
+          }],
+        },
+      },
+    });
+    const result = await getQualifyingResults(2026, 1);
+    expect(result[0].q1).toBe('1:16.500');
+    expect(result[0].q2).toBeNull();
+    expect(result[0].q3).toBeNull();
+  });
+
+  it('uses empty string fallbacks when Driver/Constructor fields are null', async () => {
+    global.fetch = mockFetch({
+      MRData: {
+        RaceTable: {
+          Races: [{
+            QualifyingResults: [{
+              position: '1',
+              Driver: { driverId: null, permanentNumber: null, givenName: null, familyName: null },
+              Constructor: { constructorId: null },
+            }],
+          }],
+        },
+      },
+    });
+    const result = await getQualifyingResults(2026, 1);
+    expect(result[0].driverId).toBe('');
+    expect(result[0].constructorId).toBe('');
+    expect(result[0].givenName).toBe('');
+    expect(result[0].familyName).toBe('');
+  });
+
+  it('throws on non-ok response', async () => {
+    global.fetch = mockFetchFail(500);
+    await expect(getQualifyingResults(2026, 1)).rejects.toThrow('Standings API error: 500');
   });
 });

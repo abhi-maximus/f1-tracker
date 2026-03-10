@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Dashboard from './Dashboard';
 
-// Mock all three hooks
+// Mock all three hooks and RacesSection
 vi.mock('../hooks/useTeams', () => ({ useTeams: vi.fn() }));
 vi.mock('../hooks/useTeamStats', () => ({ useTeamStats: vi.fn() }));
 vi.mock('../hooks/useStandings', () => ({ useStandings: vi.fn() }));
+vi.mock('./RacesSection', () => ({
+  default: ({ year }) => <div data-testid="races-section">Races {year}</div>,
+}));
 
 import { useTeams } from '../hooks/useTeams';
 import { useTeamStats } from '../hooks/useTeamStats';
@@ -267,6 +270,59 @@ describe('Dashboard', () => {
     fireEvent.click(cards[0]); // click the card (not compare button)
     // Modal should show "Added to Comparison" since ferrari is already selected
     expect(screen.getByText('✓ Added to Comparison')).toBeTruthy();
+  });
+
+  it('shows Races tab button in header', () => {
+    render(<Dashboard />);
+    expect(screen.getByText('🏁 Races')).toBeTruthy();
+  });
+
+  it('shows Teams tab button in header', () => {
+    render(<Dashboard />);
+    expect(screen.getByText('🏎️ Teams')).toBeTruthy();
+  });
+
+  it('renders RacesSection when Races tab is clicked', () => {
+    render(<Dashboard />);
+    fireEvent.click(screen.getByText('🏁 Races'));
+    expect(screen.getByTestId('races-section')).toBeTruthy();
+  });
+
+  it('hides team cards when Races tab is active', () => {
+    render(<Dashboard />);
+    fireEvent.click(screen.getByText('🏁 Races'));
+    expect(screen.queryByText('FERRARI')).toBeNull();
+  });
+
+  it('passes current year to RacesSection', () => {
+    render(<Dashboard />);
+    fireEvent.click(screen.getByText('🏁 Races'));
+    const currentYear = new Date().getFullYear();
+    expect(screen.getByText(`Races ${currentYear}`)).toBeTruthy();
+  });
+
+  it('returns to Teams view when Teams tab clicked after switching to Races', () => {
+    render(<Dashboard />);
+    fireEvent.click(screen.getByText('🏁 Races'));
+    expect(screen.queryByText('FERRARI')).toBeNull();
+    fireEvent.click(screen.getByText('🏎️ Teams'));
+    expect(screen.getByText('FERRARI')).toBeTruthy();
+  });
+
+  it('clears selected teams when switching to Races tab', () => {
+    render(<Dashboard />);
+    const compareButtons = screen.getAllByText('⚔️ Compare');
+    fireEvent.click(compareButtons[0]);
+    expect(screen.getByText(/Pick one more/)).toBeTruthy();
+    fireEvent.click(screen.getByText('🏁 Races'));
+    fireEvent.click(screen.getByText('🏎️ Teams'));
+    expect(screen.queryByText(/Pick one more/)).toBeNull();
+  });
+
+  it('hides sort select on mobile when Races tab is active', () => {
+    render(<Dashboard />);
+    fireEvent.click(screen.getByText('🏁 Races'));
+    expect(screen.queryByLabelText('Sort teams by')).toBeNull();
   });
 
   it('replaces oldest team when third team compared (keeps last 2)', () => {

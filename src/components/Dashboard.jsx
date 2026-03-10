@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import TeamCard from './TeamCard';
 import TeamComparison from './TeamComparison';
 import TeamDetailModal from './TeamDetailModal';
+import RacesSection from './RacesSection';
 import { useTeams } from '../hooks/useTeams';
 import { useTeamStats } from '../hooks/useTeamStats';
 import { useStandings } from '../hooks/useStandings';
@@ -66,6 +67,7 @@ function StatusBar({ sessions, loading, error, lastUpdated }) {
 
 export default function Dashboard() {
   const [year, setYear]         = useState(CURRENT_YEAR);
+  const [activeTab, setActiveTab] = useState('teams');
   const [selected, setSelected] = useState([]);
   const [detailTeam, setDetailTeam] = useState(null);
   const [sortBy, setSortBy]     = useState('points');
@@ -78,6 +80,12 @@ export default function Dashboard() {
 
   function handleYearChange(y) {
     setYear(y);
+    setSelected([]);
+    setDetailTeam(null);
+  }
+
+  function handleTabChange(tab) {
+    setActiveTab(tab);
     setSelected([]);
     setDetailTeam(null);
   }
@@ -136,16 +144,18 @@ export default function Dashboard() {
               >
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className={selectCls}
-                aria-label="Sort teams by"
-              >
-                {SORT_OPTIONS.map(({ key, label }) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
+              {activeTab === 'teams' && (
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className={selectCls}
+                  aria-label="Sort teams by"
+                >
+                  {SORT_OPTIONS.map(({ key, label }) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Desktop: year pills */}
@@ -164,71 +174,100 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Desktop: sort pills — second row on sm, hidden on mobile */}
-          <div className="hidden sm:flex items-center gap-1.5 pb-3 bg-white/5 rounded-2xl p-1 w-fit">
-            {SORT_OPTIONS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setSortBy(key)}
-                className={`px-3 py-2 rounded-xl text-xs font-black tracking-wider transition-all duration-150 min-h-[36px] ${
-                  sortBy === key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Second row: tabs + sort pills */}
+          <div className="flex items-center gap-3 pb-3 flex-wrap">
+            {/* Tab pills */}
+            <div className="flex items-center gap-1 bg-white/5 rounded-2xl p-1">
+              {[['teams', '🏎️ Teams'], ['races', '🏁 Races']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => handleTabChange(key)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black tracking-wider transition-all duration-150 min-h-[36px] ${
+                    activeTab === key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort pills (teams tab only, desktop) */}
+            {activeTab === 'teams' && (
+              <div className="hidden sm:flex items-center gap-1 bg-white/5 rounded-2xl p-1">
+                {SORT_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    className={`px-3 py-2 rounded-xl text-xs font-black tracking-wider transition-all duration-150 min-h-[36px] ${
+                      sortBy === key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* ── Main ── */}
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
-        <StatusBar sessions={sessions} loading={loading} error={error} lastUpdated={lastUpdated} />
 
-        {/* Comparison panel */}
-        {selected.length > 0 && (
-          <div className="mb-6">
-            <TeamComparison
-              teamA={compareTeamA?.team}
-              teamB={compareTeamB?.team}
-              statsA={compareTeamA?.stats}
-              statsB={compareTeamB?.stats}
-              standingsA={compareTeamA?.standings}
-              standingsB={compareTeamB?.standings}
-              onClose={() => setSelected([])}
-            />
-          </div>
-        )}
+        {/* ── Races tab ── */}
+        {activeTab === 'races' && <RacesSection year={year} />}
 
-        {/* Hint */}
-        {selected.length === 0 && !loading && (
-          <p className="text-xs text-gray-600 mb-5">
-            Tap a card to see DNF details · ⚔️ Compare adds a team to the comparison.
-          </p>
-        )}
-        {selected.length === 1 && (
-          <p className="text-xs text-yellow-500/70 mb-5">
-            Pick one more team to compare with <strong>{selected[0].shortName}</strong>.
-          </p>
-        )}
+        {/* ── Teams tab ── */}
+        {activeTab === 'teams' && (
+          <>
+            <StatusBar sessions={sessions} loading={loading} error={error} lastUpdated={lastUpdated} />
 
-        {/* Grid: 1 col mobile · 2 col tablet · 3 col desktop */}
-        {loading ? <LoadingGrid /> : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {sorted.map((team, i) => (
-              <TeamCard
-                key={`${year}-${team.id}`}
-                team={team}
-                stats={stats[team.id]}
-                standings={constructorPoints[team.id]}
-                driverStandings={getTeamDriverStandings(team.id)}
-                onDetail={setDetailTeam}
-                onCompare={handleCompare}
-                selected={!!selected.find((s) => s.id === team.id)}
-                index={i}
-              />
-            ))}
-          </div>
+            {/* Comparison panel */}
+            {selected.length > 0 && (
+              <div className="mb-6">
+                <TeamComparison
+                  teamA={compareTeamA?.team}
+                  teamB={compareTeamB?.team}
+                  statsA={compareTeamA?.stats}
+                  statsB={compareTeamB?.stats}
+                  standingsA={compareTeamA?.standings}
+                  standingsB={compareTeamB?.standings}
+                  onClose={() => setSelected([])}
+                />
+              </div>
+            )}
+
+            {/* Hint */}
+            {selected.length === 0 && !loading && (
+              <p className="text-xs text-gray-600 mb-5">
+                Tap a card to see DNF details · ⚔️ Compare adds a team to the comparison.
+              </p>
+            )}
+            {selected.length === 1 && (
+              <p className="text-xs text-yellow-500/70 mb-5">
+                Pick one more team to compare with <strong>{selected[0].shortName}</strong>.
+              </p>
+            )}
+
+            {/* Grid: 1 col mobile · 2 col tablet · 3 col desktop */}
+            {loading ? <LoadingGrid /> : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                {sorted.map((team, i) => (
+                  <TeamCard
+                    key={`${year}-${team.id}`}
+                    team={team}
+                    stats={stats[team.id]}
+                    standings={constructorPoints[team.id]}
+                    driverStandings={getTeamDriverStandings(team.id)}
+                    onDetail={setDetailTeam}
+                    onCompare={handleCompare}
+                    selected={!!selected.find((s) => s.id === team.id)}
+                    index={i}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 
